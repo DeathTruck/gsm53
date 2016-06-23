@@ -12,7 +12,10 @@ STDAY=1
 EDDAY=3
 BASE=0
 # BASE=473352
-
+cd 195301
+ls $FLX.ft00
+cp $FLX.ft0 $FLX.19530101.avrg.grib
+cd ../
 echo starting loop
 while [ ${YEAR1} -le ${YEAR2} ] ; do
  for MONTH in ${MONTHS} ; do 
