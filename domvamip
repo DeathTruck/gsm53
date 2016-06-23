@@ -1,0 +1,82 @@
+YEAR1=1953    # do not change
+YEARS=1953
+YEAR2=1992
+MONTH="12"
+FLX="pgb"
+MONTHS="01 02 03 04 05 06 07 08 09 10 11 12"
+DAYS31="00 24 48 72 96 120 144 168 192 216 240 264 288 312 336 360 384 408 432 456 480 504 528 552 576 600 624 648 672 696 720"
+DAYS30="00 24 48 72 96 120 144 168 192 216 240 264 288 312 336 360 384 408 432 456 480 504 528 552 576 600 624 648 672 696"
+DAYS29="00 24 48 72 96 120 144 168 192 216 240 264 288 312 336 360 384 408 432 456 480 504 528 552 576 600 624 648 672"
+DAYS28="00 24 48 72 96 120 144 168 192 216 240 264 288 312 336 360 384 408 432 456 480 504 528 552 576 600 624 648"
+STDAY=1
+EDDAY=3
+BASE=0
+
+mv $FLX.ft00 $FLX.ft0
+echo starting loop
+while [ ${YEAR1} -le ${YEAR2} ] ; do
+ for MONTH in ${MONTHS} ; do 
+  if [ ${MONTH} -eq 01 ] ; then
+     DAYS=$DAYS31
+  fi
+  if [ ${MONTH} -eq 02 ] ; then
+		mody4=`expr $YEAR1 \/ 4`
+		mody4=`expr $mody4 \* 4`
+		if [ $mody4 -eq $YEAR1 ] ; then
+                        DAYS=$DAYS29
+		else
+                        DAYS=$DAYS28
+		fi
+  fi
+  if [ ${MONTH} -eq 03 ] ; then
+     DAYS=$DAYS31
+  fi
+  if [ ${MONTH} -eq 04 ] ; then
+     DAYS=$DAYS30
+  fi
+  if [ ${MONTH} -eq 05 ] ; then
+     DAYS=$DAYS31
+  fi
+  if [ ${MONTH} -eq 06 ] ; then
+     DAYS=$DAYS30
+  fi
+  if [ ${MONTH} -eq 07 ] ; then
+     DAYS=$DAYS31
+  fi
+  if [ ${MONTH} -eq 08 ] ; then
+     DAYS=$DAYS31
+  fi
+  if [ ${MONTH} -eq 09 ] ; then
+     DAYS=$DAYS30
+  fi
+  if [ ${MONTH} -eq 10 ] ; then
+     DAYS=$DAYS31
+  fi
+  if [ ${MONTH} -eq 11 ] ; then
+     DAYS=$DAYS30
+  fi
+  if [ ${MONTH} -eq 12 ] ; then
+     DAYS=$DAYS31
+  fi
+  echo $YEAR1 $MONTH
+  INDIR=${YEAR1}${MONTH}
+  mkdir ${INDIR}
+  echo $INDIR
+  echo $DAYS
+  for DAY in ${DAYS} ; do 
+     DAY2=`expr $DAY \+ $BASE`
+     INFILE=$FLX.ft$DAY2
+     echo $INFILE
+     mv $INFILE ${INDIR}
+  done
+  cd ${INDIR}
+#  if [ ${YEAR1} -ge ${YEARS} ] ; then
+#    cat $FLX.ft* > $FLX.month.grib
+#    ../../../libs/etc/grib2ctl.pl -verf $FLX.month.grib > $FLX.month.ctl
+#    gribmap -E -i $FLX.month.ctl
+#  fi 
+  BASE=`expr $DAY2 \+ 24`
+  cd ../
+ done
+ YEAR1=`expr ${YEAR1} + 1`
+done
