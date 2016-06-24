@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+#
+YEAR=1953
+YEAR2=1994
+echo $YEAR
+echo $year
+
+while [ $YEAR -lt $YEAR2 ] ; do
+
+
+
+cp sst23.01.grib sst23.$YEAR.01.grib 
+cp sst23.02.grib sst23.$YEAR.02.grib 
+cp sst23.03.grib sst23.$YEAR.03.grib
+cp sst23.04.grib sst23.$YEAR.04.grib
+cp sst23.05.grib sst23.$YEAR.05.grib
+cp sst23.06.grib sst23.$YEAR.06.grib
+ cp sst23.07.grib sst23.$YEAR.07.grib
+ cp sst23.08.grib sst23.$YEAR.08.grib
+ cp sst23.09.grib sst23.$YEAR.09.grib
+ cp sst23.10.grib sst23.$YEAR.10.grib
+ cp sst23.11.grib sst23.$YEAR.11.grib
+ cp sst23.12.grib sst23.$YEAR.12.grib
+echo $YEAR
+YEAR=` expr $YEAR \+ 1`
+done
+
+echo here I am
