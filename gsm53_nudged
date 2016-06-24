@@ -1,0 +1,257 @@
+#!/bin/sh
+#
+#PBS -q stott
+#PBS -N ctrl2013
+#PBS -k oe
+#PBS -l walltime=300:00:00
+#PBS -l nodes=4:ppn=24
+#
+#
+set -ax
+#
+# this script makes 72 hour integration starting from an example initial
+# condition. ideal for first testing the system on new computer system
+#
+# ---------------  user changeable parameters ------------------------
+#
+# Change the following variable if you are running separate experiments
+# from the same directory
+#
+RUNNAME=ctrl2013
+EXECDIR=/home/ccr-01/buenning/test0164/gsm_runs/$RUNNAME
+mkdir -p $EXECDIR 2>/dev/null
+#
+# Intervals of sfc execution, sigma output, sfc output and flx output
+# Various options for running the model
+#
+YYYY=1953
+YYYYY=`expr $YYYY \+ 1`
+YYYYE=2015
+MM="01"
+base=0
+mon=`expr 24 \* 31`
+#
+while [ $YYYY -lt $YYYYE ] ; do
+ENDHOUR=`expr $base \+ $mon`
+INCHOUR=$ENDHOUR
+INTSFCX=24
+INTSIG=24
+INTSFC=24
+INTPOST=24
+INTRESTART=$ENDHOUR
+#
+FCST_RESTART=yes
+#
+#  ------------- below for expert user only --------------------
+#
+# If you wish, you may modify EXECDIR to /tmp directory and keep these
+# scripts on your permanent disk.
+#
+#
+# -------  do not change below  -------------------------------------
+#
+# --------- !!!!!!!!! nudging files
+#
+ln -sf /home/ccr-01/buenning/nomad3/base.$YYYY\0* $EXECDIR
+ln -sf /home/ccr-01/buenning/nomad3/base.$YYYY\1* $EXECDIR
+  if [ $MM -eq "12" ] ; then
+    ln -sf /home/ccr-01/buenning/nomad3/base.$YYYYY\010100 $EXECDIR
+  fi
+#
+INITIAL_SIGMA=/home/ccr-01/buenning/data/reanalysis/sig.$YYYY\010100.ieee
+INITIAL_SFC=/home/ccr-01/buenning/data/reanalysis/sfc.$YYYY\010100.ieee
+INITIAL_SFC_FILE_TYPE=osu1
+#
+#  blank means use guess (in the sfc file).
+#
+SST_ANL_T0=
+ICE_ANL_T0=
+SNO_ANL_T0=
+SCV_ANL_T0=
+SST_ANL=/home/ccr-01/buenning/data/gribfiles/sst.\$YYYY.\$MM.grib
+ICE_ANL=/home/ccr-01/buenning/data/gribfiles/ice.\$YYYY.\$MM.grib
+SNO_ANL=
+SCV_ANL=
+#
+INPUT_RESOLUTION=t62k28
+#
+FCST_NPES=96
+#
+#  cd to run directory
+#
+scrnam=`echo $0 | sed 's?.*/??g'`
+cp $0 $EXECDIR/0LOG.$scrnam
+ls -l /home/ccr-01/buenning/test0164/gsm/bin >$EXECDIR/0LOG.bindates
+cd $EXECDIR || exit 8
+#
+#  renew log file
+#
+cat $0 > ERROR.out
+echo '==============' >>ERROR.out
+#
+# Automatic restart
+#
+if [ -s sigit -a -s sigitdt -a -s sfci -a "$FCST_RESTART" = yes ];then
+	#
+	#  Restart
+	#
+	h=`/home/ccr-01/buenning/test0164/libs/etc/fhour sigit`
+	echo fhour in the sigit file = $h
+else
+	#
+	#  Initial start.
+	#
+	h=00
+	#
+	# Conversion from ascii to native format
+	#
+	fmt=`echo $INITIAL_SIGMA | sed 's/.*\.//g'`
+	/home/ccr-01/buenning/test0164/libs/etc/scnvrt gsm $INITIAL_SFC_FILE_TYPE \
+		62:192:94:28 \
+		-1:-1:-1:-1:-1 \
+		$fmt:bin $INITIAL_SIGMA:$INITIAL_SFC \
+		cnvrt_initial_sig:cnvrt_initial_sfc || exit 8
+	#
+	# Find initial date and hour
+	#
+	/home/ccr-01/buenning/test0164/libs/etc/date cnvrt_initial_sig >date.$$ || exit 8
+	read HH MM DD yyyy FH <date.$$ ; rm date.$$
+	echo $yyyy $MM $DD $HH $FH
+	#
+	# Change input resolution to model resolution
+	#
+	/home/ccr-01/buenning/test0164/gsm_runs/runscr/chgr \
+			cnvrt_initial_sig cnvrt_initial_sfc \
+			sigit sfci \
+			$INITIAL_SFC_FILE_TYPE || exit 8
+	#
+	#  convert initial sfc file type to model sfc file type
+	#
+	SST_GRB_T0=`eval echo $SST_ANL_T0`
+	SNO_GRB_T0=`eval echo $SNO_ANL_T0`
+	SCV_GRB_T0=`eval echo $SCV_ANL_T0`
+	ICE_GRB_T0=`eval echo $ICE_ANL_T0`
+	export SST_GRB_T0 SNO_GRB_T0 SCV_GRB_T0 ICE_GRB_T0
+	/home/ccr-01/buenning/test0164/gsm_runs/runscr/sfc0 sfci sfco $INITIAL_SFC_FILE_TYPE || exit 8
+	#
+	cp sfco sfci || exit 8
+#	cp ../../../test08/gsm_runs/g_1953/sfco sfco || exit 8
+#	cp ../../../test08/gsm_runs/g_1953/sfci sfci || exit 8
+	cp sigit sigitdt || exit 8
+	cp sigit sig.ft$h || exit 8
+	cp sfci  sfc.ft$h || exit 8
+	#
+	/home/ccr-01/buenning/test0164/libs/etc/date sigit >date.$$ || exit 8
+	read HH MM DD yyyy FH <date.$$ ; rm date.$$
+	echo $yyyy $MM $DD $HH $FH
+	#
+	#  pgb of the initial
+	#
+	if [ "" = DEFINED ] ; then
+		/home/ccr-01/buenning/test0164/gsm_runs/runscr/pgb $h $h $INTSFCX || exit 8
+	elif [ " " = DEFINED ] ; then
+		/home/ccr-01/buenning/test0164/libs/etc/catpgb
+	fi
+fi
+#
+#  forecast hour loop
+#
+xc=0
+while [ $h -lt $ENDHOUR ] ; do
+	#
+	hx=`expr $h + $INCHOUR`
+	if [ $hx -gt $ENDHOUR ] ; then
+		hx=$ENDHOUR
+	fi
+	if [ $hx -lt 10 ];then hx=0$hx;fi
+	#
+	SST_GRB=`eval echo $SST_ANL`
+	SNO_GRB=`eval echo $SNO_ANL`
+	SCV_GRB=`eval echo $SNO_ANL`
+	ICE_GRB=`eval echo $ICE_ANL`
+	export SST_GRB SNO_GRB SCV_GRB ICE_GRB
+	/home/ccr-01/buenning/test0164/gsm_runs/runscr/fcstparm $INCHOUR $ENDHOUR $INTSFCX \
+			$INTSIG:$INTSFC:$INTPOST:$INTRESTART || exit 8
+	#
+	#  Execute forecast
+	#
+	/home/ccr-01/buenning/test0164/gsm_runs/runscr/fcst || exit 8
+	#
+	#  pgb of the forecast
+	#
+	if [ "" = DEFINED ] ; then
+		/home/ccr-01/buenning/test0164/gsm_runs/runscr/pgb $h $hx $INTSIG || exit 8
+	elif [ " " = DEFINED ] ; then
+		/home/ccr-01/buenning/test0164/libs/etc/catpgb
+	fi
+	#
+	#  find archive files
+	#
+	cp sig.ft$hx sigit || exit 8
+	mv sigp.ft$hx sigitdt  || exit 8
+	cp sfc.ft$hx sfci || exit 8
+  #
+  h=$hx
+done
+DUMM=$MM
+if [ $DUMM -eq "01" ] ; then
+  MM="02"
+  mon=`expr 24 \* 28`
+	mody4=`expr $YYYY \/ 4`
+	mody4=`expr $mody4 \* 4`
+	if [ $mody4 -eq $YYYY ] ; then
+		mon=`expr 24 \* 29`
+        fi
+fi
+if [ $DUMM -eq "02" ] ; then
+  MM="03"
+  mon=`expr 24 \* 31`
+fi
+if [ $DUMM -eq "03" ] ; then
+  MM="04"
+  mon=`expr 24 \* 30`
+fi
+if [ $DUMM -eq "04" ] ; then
+  MM="05"
+  mon=`expr 24 \* 31`
+fi
+if [ $DUMM -eq "05" ] ; then
+  MM="06"
+  mon=`expr 24 \* 30`
+fi
+if [ $DUMM -eq "06" ] ; then
+  MM="07"
+  mon=`expr 24 \* 31`
+fi
+if [ $DUMM -eq "07" ] ; then
+  MM="08"
+  mon=`expr 24 \* 31`
+fi
+if [ $DUMM -eq "08" ] ; then
+  MM="09"
+  mon=`expr 24 \* 30`
+fi
+if [ $DUMM -eq "09" ] ; then
+  MM="10"
+  mon=`expr 24 \* 31`
+fi
+if [ $DUMM -eq "10" ] ; then
+  MM="11"
+  mon=`expr 24 \* 30`
+fi
+if [ $DUMM -eq "11" ] ; then
+  MM="12"
+  mon=`expr 24 \* 31`
+fi
+if [ $DUMM -eq "12" ] ; then
+  MM="01"
+  mon=`expr 24 \* 31`
+  YYYY=$YYYYY
+  YYYYY=`expr $YYYYY \+ 1`
+fi
+  base=$ENDHOUR
+done 
+if [ linux = mac -a mpi = mpi ] ; then
+        lamclean
+        lamhalt
+fi
