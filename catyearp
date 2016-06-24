@@ -1,0 +1,11 @@
+#!/bin/sh
+year=1953
+year2=1992
+while [ $year -le $year2 ] ; do
+echo $year
+cat ${year}01/pgb.${year}01.avrg.grib ${year}02/pgb.${year}02.avrg.grib ${year}03/pgb.${year}03.avrg.grib ${year}04/pgb.${year}04.avrg.grib  ${year}05/pgb.${year}05.avrg.grib  ${year}06/pgb.${year}06.avrg.grib  ${year}07/pgb.${year}07.avrg.grib  ${year}08/pgb.${year}08.avrg.grib  ${year}09/pgb.${year}09.avrg.grib  ${year}10/pgb.${year}10.avrg.grib  ${year}11/pgb.${year}11.avrg.grib  ${year}12/pgb.${year}12.avrg.grib >  pgb.${year}.grib
+
+year=`expr $year \+ 1`
+done
+
+
