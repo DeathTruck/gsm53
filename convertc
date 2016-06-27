@@ -1,0 +1,21 @@
+
+reinit
+
+open flxfiles/flx.ctl
+
+set lon 0 360
+set lat -90 90
+set t 1 480
+define prcp=pratesfc
+define prcp1=prate1sfc
+define prcp2=prate2sfc
+set sdfwrite prcp.nc
+sdfwrite prcp
+set sdfwrite prcp1.nc
+sdfwrite prcp1
+set sdfwrite prcp2.nc
+sdfwrite prcp2
+query file
+close 1
+
+
