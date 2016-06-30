@@ -1,0 +1,401 @@
+#!/bin/sh
+#
+#PBS -q stott
+#PBS -N rsm_2010_ens01_00
+#PBS -k oe
+#PBS -l walltime=300:00:00
+#PBS -l nodes=4:ppn=24
+#
+#
+#
+set -ax
+#
+#  rsm integration from ready made initial condition
+#
+# ---------------  User changeable parameters -----------------
+#
+# run directory name
+#
+RUNNAME=rsm_2010_ens01_00
+#
+USEERA=0  # 1:use era40 forcing
+#
+#  rsm domain specification
+# 
+# calcoast_8187_40km_merc
+#
+RPROJ=0.
+RTRUTH=25.
+RORIENT=-105.
+RDELX=40000.
+RDELY=40000.
+RCENLAT=25.
+RCENLON=-105.
+RLFTGRD=75.
+RBTMGRD=25.
+# 
+#
+#  model parameters
+#
+ENDHOUR=46704
+DELTAT_REG=30
+NESTING_HOUR=6
+SWHR_REG=1
+LWHR_REG=1
+INTSFCX=24
+INCHOUR=$ENDHOUR
+INTPOST=24
+INTPGB=$INTPOST
+INTRESTART=24
+#
+# ------------- chenge below for expert only ----------------------
+#
+FCST_RESTART=yes
+#
+DELETE_SIGGLOB=yes
+#
+if [ $INCHOUR -lt $INTSFCX ] ; then
+	echo "INCHOUR < INTSFCX"
+	echo "INCHOUR set to INTSFCX to make sure sfc is called."
+fi
+
+#
+# You may modify EXECDIR to /tmp directory and keep this
+# scripts on your permanent disk.
+#
+EXECDIR=/home/ccr-01/buenning/rtest03/rsm_runs/$RUNNAME
+#
+SST_ANL_T0=
+SST_ANL=
+SNO_ANL_T0=
+SNO_ANL=
+ICE_ANL_T0=
+ICE_ANL=
+#
+# -------  do not change below  -------------------------------------
+#
+# ready-made initial condition and base field
+#
+FCST_NPES=96
+#
+GLOBAL_SIG_INITIAL=/auto/ccr-01/buenning/rsm_files/iso_2010_ens01/sig.2010010100.bin
+GLOBAL_SFC_INITIAL=/auto/ccr-01/buenning/rsm_files/iso_2010_ens01/sfc.2010010100.bin
+INITIAL_SFC_FILE_TYPE=osu1
+BASE_SIG=/auto/ccr-01/buenning/rsm_files/iso_2010_ens01/sig.\${YYYY}\${MM}\${DD}\${HH}.bin
+# GLOBAL_SIG_INITIAL=/home/ccr-01/buenning/rtest03/libs/con/sigft0090030900.asc
+# GLOBAL_SFC_INITIAL=/home/ccr-01/buenning/rtest03/libs/con/sfcanl90030900.asc
+# INITIAL_SFC_FILE_TYPE=osu1
+# BASE_SIG=/home/ccr-01/buenning/rtest03/libs/con/sigft\${FH}90030900.asc
+#
+YYYYS=2010
+YYYY=$YYYYS
+MMS=01
+DDS=01
+HHS=00
+#
+#   coarse rsm domain specification
+# 
+CPROJ=0.0
+CTRUTH=0.0
+CORIENT=0.0
+CDELX=0.0
+CDELY=0.0
+CCENLAT=0.0
+CCENLON=0.0
+CLFTGRD=0.0
+CBTMGRD=0.0
+#
+mkdir -p $EXECDIR 2>/dev/null
+scrnam=`echo $0 | sed 's?.*/??g'`
+cp $0 $EXECDIR/0LOG.$scrnam
+ls -l /home/ccr-01/buenning/rtest03/rsm/bin >$EXECDIR/0LOG.bindates
+cd $EXECDIR
+#
+### prepare era40 forcing ###
+#
+if [ $USEERA -eq 1 ] ; then 
+	ERADATA=/home/ccr-01/buenning/rtest03/libs/con/era40_19900309.grib
+	if [ ! -r $ERADATA ] ; then
+	    echo No $ERADATA Abort
+	    exit 8
+	fi
+	#
+	TIME=0
+	while [ $TIME -le $ENDHOUR ] ; do
+	    if [ $TIME -lt 10 ] ; then
+		TIME=0$TIME
+	    fi
+	    /home/ccr-01/buenning/rtest03/libs/etc/incdte \
+		$YYYYS $MMS $DDS $HHS $TIME  >dteout$$ || exit 8
+	    read YYYYF MMF DDF HHF  <dteout$$ ; rm dteout$$
+	# 
+	    if [ ! -r ./era40_$YYYYF$MMF$DDF$HHF.p2sig ] ; then
+		/home/ccr-01/buenning/rtest03/rsm_runs/runscr/p2sig_era $ERADATA ./era40_$YYYYF$MMF$DDF$HHF.p2sig $YYYYF:$MMF:$DDF:$HHF:0 || exit 8
+	    fi
+	    if [ ! -r era40_ft${TIME}.p2sig.asc ] ; then
+		/home/ccr-01/buenning/rtest03/libs/etc/scnvrt gsm $INITIAL_SFC_FILE_TYPE \
+		    62:192:94:28 \
+		    $YYYYS:$MMS:$DDS:$HHS:$TIME \
+		    bin:asc \
+		    era40_$YYYYF$MMF$DDF$HHF.p2sig:dummy \
+		    era40_ft${TIME}.p2sig.asc:dummy1 || exit 8
+	    fi
+	    TIME=`expr ${TIME} + ${NESTING_HOUR}`
+	done
+	# redefine initial and base
+	GLOBAL_SIG_INITIAL=era40_ft00.p2sig.asc
+	BASE_SIG=era40_ft\${FH}.p2sig.asc
+fi
+#
+rm ERROR.out 2>/dev/null
+echo "`date` $0: started" >>ERROR.out
+#
+#  create namelist regional domain data
+#
+cat >rsm.parm <<EOF
+ &NAMLOC
+ RPROJ    = $RPROJ,
+ RTRUTH   = $RTRUTH,
+ RORIENT  = $RORIENT,
+ RDELX    = $RDELX,
+ RDELY    = $RDELY,
+ RCENLAT  = $RCENLAT,
+ RCENLON  = $RCENLON,
+ RLFTGRD  = $RLFTGRD,
+ RBTMGRD  = $RBTMGRD,
+ CPROJ    = $CPROJ,
+ CTRUTH   = $CTRUTH,
+ CORIENT  = $CORIENT,
+ CDELX    = $CDELX,
+ CDELY    = $CDELY,
+ CCENLAT  = $CCENLAT,
+ CCENLON  = $CCENLON,
+ CLFTGRD  = $CLFTGRD,
+ CBTMGRD  = $CBTMGRD,
+/
+EOF
+#
+#  automatic restart
+#
+if [ -s r_sigit -a -s r_sigitdt -a -s r_sfci -a $FCST_RESTART = yes ] ; then
+	#
+	#  restart
+	#
+    ft=`ls -lt r_sigit.ft* | head -1 | awk '{print $9}' | sed 's/.*\.ft//g'`
+    cp r_sigit.ft$ft r_sigit || exit 8
+    cp r_sigitdt.ft$ft r_sigitdt || exit 8
+    cp r_sfc.ft$ft r_sfci || exit 8
+	h=`/home/ccr-01/buenning/rtest03/libs/etc/fhour r_sigit`
+	echo fhour in the r_sigit file = $h
+else
+	#
+	#  cold start
+	#
+	#  Initial condition.  Convert to native format
+	#
+	INPUT_RESOLUTION=t62k28
+	export INPUT_RESOLUTION
+	#
+	#  generate rsm initial condition from global files
+	#
+	if [ ! -s r_sigit.ft00 -o ! -s r_sfc.ft00 ] ; then
+		#
+		#  convert input global files to binary
+		#
+                fmt=`echo $GLOBAL_SIG_INITIAL | sed 's/.*\.//g'`
+                /home/ccr-01/buenning/rtest03/libs/etc/scnvrt gsm $INITIAL_SFC_FILE_TYPE \
+			62:192:94:28 \
+			$YYYYS:-1:-1:-1:-1 \
+			$fmt:bin \
+			$GLOBAL_SIG_INITIAL:$GLOBAL_SFC_INITIAL \
+			sig.ft00:sfc.ft00 || exit 8
+		#
+		#  horizontal transform/interpolation
+		#
+		/home/ccr-01/buenning/rtest03/rsm_runs/runscr/r_inpg $INITIAL_SFC_FILE_TYPE \
+			sig.ft00:sfc.ft00 \
+			r_sigit.ft00:r_sfc.ft00 || exit 8
+	fi
+	#
+	#  renew r_sfc files using grib data input
+	#
+	SST_GRB=`eval echo $SST_ANL`
+	SNO_GRB=`eval echo $SNO_ANL`
+	ICE_GRB=`eval echo $ICE_ANL`
+	export SST_GRB SNO_GRB ICE_GRB
+	/home/ccr-01/buenning/rtest03/rsm_runs/runscr/rsfc0 r_sfc.ft00 r_sfci $INITIAL_SFC_FILE_TYPE || exit 8
+	cp r_sfci r_sfc.ft00
+	cp r_sigit.ft00 r_sigit
+	cp r_sigit r_sigitdt
+	#
+	h=0
+fi
+#
+#  forecast loop
+#
+while [ $h -lt $ENDHOUR ];do
+	h=`expr $h + 0`
+	hx=`expr $h + $INCHOUR`
+	if [ $hx -lt 10 ]; then hx=0$hx; fi
+	#
+	#  link base field to properly named file	
+	#
+	fhend=`expr $INCHOUR + $NESTING_HOUR`
+	modf=`expr $fhend \/ $NESTING_HOUR`
+	if [ `expr $modf \* $NESTING_HOUR` -ne $fhend ] ; then
+		fhend=`expr \( $modf + 1 \) \* $NESTING_HOUR`
+	fi
+	fh=0
+	while [ $fh -le $fhend ] ; do
+		FH=`expr $fh + $h`
+		FH=`expr \( $FH \/ $NESTING_HOUR \) \* $NESTING_HOUR`
+		if [ $FH -gt $ENDHOUR ] ; then
+			break
+		fi
+        ### STUFF FOR DATE
+              #### LEAP YEAR STUFF
+                leapflag=0
+                mody4=`expr $YYYY \/ 4`
+                mody4=`expr $mody4 \* 4`
+                dum1=`expr 24 \* 31`
+                dum2=`expr $dum1 \+ 24 \* 28`
+                if [ $mody4 -eq $YYYY ] ; then
+                   leapflag=1
+                   dum2=`expr $dum1 \+ 24 \* 29`
+                   yearlength=`expr 24 \* 366`
+                fi
+                dum3=`expr $dum2 \+ 24 \* 31`
+                dum4=`expr $dum3 \+ 24 \* 30`
+                dum5=`expr $dum4 \+ 24 \* 31`
+                dum6=`expr $dum5 \+ 24 \* 30`
+                dum7=`expr $dum6 \+ 24 \* 31`
+                dum8=`expr $dum7 \+ 24 \* 31`
+                dum9=`expr $dum8 \+ 24 \* 30`
+                dum10=`expr $dum9 \+ 24 \* 31`
+                dum11=`expr $dum10 \+ 24 \* 30`
+                dum12=`expr $dum11 \+ 24 \* 31`
+                yearlength=`expr 24 \* 365`
+                ################ HOW MANY LEAP YEARS HAVE GONE BY SO FAR?
+		if [ $YYYY -le 2016 ]; then numleap=1; fi
+		if [ $YYYY -le 2012 ]; then numleap=0; fi
+                yearcount=`expr $YYYY \- $YYYYS`
+                FHnew=`expr $FH \- $yearcount \* 24 \* 365`
+                FHnew=`expr $FHnew \- 24 \* $numleap`
+      ##########ASSSIGN MM DD HH
+                if [ $FHnew -lt $dum1 ] ; then
+                   MM="01"
+                   DD=`expr 1 \+ $FHnew \/ 24`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum1 ] ; then
+                   MM="02"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 31`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum2 ] ; then
+                   MM="03"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum3 ] ; then
+                   MM="04"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum4 ] ; then
+                   MM="05"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 30 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum5 ] ; then
+                   MM="06"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 31 \- 30 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum6 ] ; then
+                   MM="07"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 30 \- 31 \- 30 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum7 ] ; then
+                   MM="08"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 31 \- 30 \- 31 \- 30 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum8 ] ; then
+                   MM="09"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 31 \- 31 \- 30 \- 31 \- 30 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum9 ] ; then
+                   MM="10"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 30 \- 31 \- 31 \- 30 \- 31 \- 30 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum10 ] ; then
+                   MM="11"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 31 \- 30 \- 31 \- 31 \- 30 \- 31 \- 30 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+                if [ $FHnew -ge $dum11 ] ; then
+                   MM="12"
+                   DD=`expr 1 \+ $FHnew \/ 24 \- 30 \- 31 \- 30 \- 31 \- 31 \- 30 \- 31 \- 30 \- 31 \- 28 \- 31 \- $leapflag`
+                   HH=`expr $FHnew \% 24`
+                fi  
+		if [ $FH -lt 10 ]; then FH=0$FH; fi
+		if [ $DD -lt 10 ]; then DD=0$DD; fi
+		if [ $HH -lt 10 ]; then HH=0$HH; fi
+                echo $FH $YYYY $MM $DD $HH
+		if [ $FH -lt 10 ]; then FH=0$FH; fi
+		if [ ! -s base_sig.ft$FH ] ; then
+			fname=`eval echo $BASE_SIG`
+			/home/ccr-01/buenning/rtest03/libs/etc/scnvrt gsm $INITIAL_SFC_FILE_TYPE \
+				62:192:94:28 \
+				$YYYYS:-1:-1:-1:-1 \
+				$fmt:bin \
+				$fname:dummy \
+				base_sig.ft$FH:dummy1 || exit 8
+				/home/ccr-01/buenning/rtest03/rsm_runs/runscr/basefnam base_sig.ft$FH
+		fi
+                if [ $MM -eq 12 -a $DD -eq 31 -a $HH -eq 18 ] ; then
+                   echo NEW YEAR
+                   YYYY=`expr $YYYY \+ 1`
+                   echo NEW YEAR
+                fi 
+		fh=`expr $fh + $NESTING_HOUR`
+	done
+	#
+	#  generate forecast namelist data
+	#
+	SST_GRB=`eval echo $SST_ANL`
+	SNO_GRB=`eval echo $SNO_ANL`
+	ICE_GRB=`eval echo $ICE_ANL`
+	export SST_GRB SNO_GRB ICE_GRB
+	/home/ccr-01/buenning/rtest03/rsm_runs/runscr/r_fcstparm $INCHOUR $ENDHOUR $DELTAT_REG \
+							$NESTING_HOUR $INTPOST $INTPGB $INTSFCX $INTRESTART || exit 8
+	#
+	#  Execute forecast
+	#
+	export MP_SET_NUMTHREADS
+	/home/ccr-01/buenning/rtest03/rsm_runs/runscr/r_fcst $h $hx $INCHOUR $INTPOST || exit 8
+	#
+	#  copy files for next forecast segment
+	#
+	cp r_sigit.ft$hx  r_sigit   || exit 8
+	mv r_sigitdt.ft$hx r_sigitdt || exit 8
+	cp r_sfc.ft$hx  r_sfci    || exit 8
+	#
+	#  post processing
+	#
+	if [ "" = DEFINED ] ; then
+		/home/ccr-01/buenning/rtest03/rsm_runs/runscr/r_post $h $hx $INTPOST || exit 8
+	elif [ " " = DEFINED ] ; then
+		/home/ccr-01/buenning/rtest03/libs/etc/catpgb
+	fi
+	#
+	h=$hx
+done
+if [ linux = mac -a mpi = mpi ] ; then
+	lamclean
+	lamhalt
+fi
