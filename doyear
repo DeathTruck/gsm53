@@ -1,0 +1,40 @@
+#!/bin/bash
+#
+# run run_fstrack for different models
+#
+models=${1-"pmDsmean_nt pmDnngrand_nt saf1 saf2 saf3 "}
+strains=${2-"2 1 0.5"}
+q1="becker64"
+q2="2011"
+echo $models
+echo $q1
+echo $q2
+year="2016"
+echo YEAR
+echo $year
+wgrib ice.$year.grib | head -n 31 | wgrib -i ice.$year.grib -grib -o ice.$year.01.grib
+wgrib sst.$year.grib | head -n 31 | wgrib -i sst.$year.grib -grib -o sst.$year.01.grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 31 && $1 < 60) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.02.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 31 && $1 < 60) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.02.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 59 && $1 < 91) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.03.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 59 && $1 < 91) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.03.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 90 && $1 < 121) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.04.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 90 && $1 < 121) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.04.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 120 && $1 < 152) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.05.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 120 && $1 < 152) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.05.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 151 && $1 < 182) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.06.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 151 && $1 < 182) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.06.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 181 && $1 < 213) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.07.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 181 && $1 < 213) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.07.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 212 && $1 < 244) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.08.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 212 && $1 < 244) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.08.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 243 && $1 < 274) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.09.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 243 && $1 < 274) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.09.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 273 && $1 < 305) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.10.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 273 && $1 < 305) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.10.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 304 && $1 < 335) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.11.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 304 && $1 < 335) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.11.grib -grib
+wgrib -s ice.$year.grib | awk '{if ($1 > 334 && $1 < 366) print $0}' FS=':' | wgrib -i ice.$year.grib -o ice.$year.12.grib -grib
+wgrib -s sst.$year.grib | awk '{if ($1 > 334 && $1 < 366) print $0}' FS=':' | wgrib -i sst.$year.grib -o sst.$year.12.grib -grib
+echo $year
+echo here I am
